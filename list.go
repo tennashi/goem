@@ -11,25 +11,14 @@ import (
 	"github.com/urfave/cli"
 )
 
-func loadListConfig(c *cli.Context) error {
-	cfgPath := c.GlobalString("config")
-	cfg, err := loadConfig(shellpath.Resolve(cfgPath))
-	if err != nil {
-		fmt.Println("config error: ", err)
-		return nil
-	}
-	c.Set("maildir", cfg.Maildir)
-	return nil
-}
-
 func handleList(c *cli.Context) error {
-	if !c.IsSet("maildir") {
+	if !c.GlobalIsSet("maildir") {
 		err := errors.New("maildir doesn't set")
 		fmt.Println(err)
 		return err
 	}
 
-	mdPath := shellpath.Resolve(c.String("maildir"))
+	mdPath := shellpath.Resolve(c.GlobalString("maildir"))
 	md, err := maildir.Open(mdPath)
 	if err != nil {
 		fmt.Println(err)

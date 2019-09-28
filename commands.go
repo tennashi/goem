@@ -11,13 +11,4 @@ var list = cli.Command{
 	Aliases: []string{"l"},
 	Usage:   "List mails",
 	Action:  handleList,
-	Before:  loadListConfig,
-	Flags:   listFlags,
-}
-
-var listFlags = []cli.Flag{
-	cli.StringFlag{
-		Name:  "maildir, m",
-		Usage: "Load Maildir from `DIR`",
-	},
 }
