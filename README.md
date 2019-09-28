@@ -1,2 +1,2 @@
 # goem
-email tools written by Go
+email tools written in Go
