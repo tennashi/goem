@@ -19,13 +19,13 @@ func handleList(c *cli.Context) error {
 	}
 
 	mdPath := shellpath.Resolve(c.GlobalString("maildir"))
-	md, err := maildir.Open(mdPath)
+	md, err := maildir.New(mdPath)
 	if err != nil {
 		fmt.Println(err)
 		return err
 	}
 
-	mails, err := md.Messages()
+	mails, err := md.Messages(maildir.SubDirCur)
 	if err != nil {
 		fmt.Println(err)
 		return err
