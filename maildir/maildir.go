@@ -111,6 +111,15 @@ func (md Maildir) GetMessage(key Key) (*mail.Message, error) {
 	return mail.ReadMessage(f)
 }
 
+func (md Maildir) GetMessageWithRawKey(key string, s SubDir) (*mail.Message, error) {
+	p := filepath.Join(md[s], key)
+	f, err := os.Open(p)
+	if err != nil {
+		return nil, err
+	}
+	return mail.ReadMessage(f)
+}
+
 var (
 	ErrCannotParse = errors.New("cannot parse")
 )
