@@ -35,7 +35,6 @@ func handleShow(c *cli.Context) error {
 		return err
 	}
 
-	// TODO: impliment
 	fmt.Println(mail)
 
 	return nil

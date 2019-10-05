@@ -3,7 +3,7 @@ package main
 import (
 	"os"
 
-	"github.com/tennashi/goem"
+	"github.com/tennashi/goem/cmd/goem/internal/goem"
 )
 
 func main() {
