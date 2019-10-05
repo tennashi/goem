@@ -12,13 +12,27 @@ import (
 	"unicode"
 )
 
-type Maildir struct {
-	Path string
-	keys struct {
-		c []Key
-		n []Key
+type Maildir map[SubDir]string
+
+type SubDir uint8
+
+const (
+	SubDirCur SubDir = iota
+	SubDirNew
+	SubDirTmp
+)
+
+func (s SubDir) String() string {
+	switch s {
+	case SubDirCur:
+		return "cur"
+	case SubDirNew:
+		return "new"
+	case SubDirTmp:
+		return "tmp"
+	default:
+		return ""
 	}
-	SubDirs []Maildir
 }
 
 type FlagType uint8
@@ -29,44 +43,29 @@ const (
 	FlagTypeNormal
 )
 
-func Open(path string) (*Maildir, error) {
-	m := &Maildir{
-		Path: path,
-	}
-
-	curKeys, err := ioutil.ReadDir(filepath.Join(m.Path, "cur"))
+func New(path string) (*Maildir, error) {
+	path, err := filepath.Abs(path)
 	if err != nil {
 		return nil, err
 	}
-	m.keys.c = make([]Key, len(curKeys))
-	for i, key := range curKeys {
-		m.keys.c[i], err = ParseKey(key.Name())
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	newKeys, err := ioutil.ReadDir(filepath.Join(m.Path, "new"))
-	if err != nil {
-		return nil, err
-	}
-	m.keys.n = make([]Key, len(newKeys))
-	for i, key := range newKeys {
-		m.keys.n[i], err = ParseKey(key.Name())
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	return m, nil
+	return &Maildir{
+		SubDirCur: filepath.Join(path, "cur"),
+		SubDirNew: filepath.Join(path, "new"),
+		SubDirTmp: filepath.Join(path, "tmp"),
+	}, nil
 }
 
-func (md Maildir) Messages() ([]*mail.Message, error) {
-	ms := make([]*mail.Message, len(md.keys.c))
-	SortKey(md.keys.c)
-	for i, k := range md.keys.c {
+func (md Maildir) Messages(s SubDir) ([]*mail.Message, error) {
+	keys, err := md.GetKeys(s)
+	if err != nil {
+		return nil, err
+	}
+	SortKey(keys)
+
+	ms := make([]*mail.Message, len(keys))
+	for i, k := range keys {
 		err := func(i int) error {
-			p := filepath.Join(md.Path, "cur", k.Raw)
+			p := filepath.Join(md[s], k.Raw)
 			f, err := os.Open(p)
 			if err != nil {
 				return err
@@ -87,21 +86,29 @@ func (md Maildir) Messages() ([]*mail.Message, error) {
 	return ms, nil
 }
 
-func (md Maildir) NewMessages() ([]*mail.Message, error) {
-	ms := make([]*mail.Message, len(md.keys.n))
-	SortKey(md.keys.n)
-	for i, k := range md.keys.n {
-		f, err := os.Open(k.Raw)
-		if err != nil {
-			return nil, err
-		}
-		m, err := mail.ReadMessage(f)
-		if err != nil {
-			return nil, err
-		}
-		ms[i] = m
+func (md Maildir) GetKeys(s SubDir) ([]Key, error) {
+	rawKeys, err := ioutil.ReadDir(md[s])
+	if err != nil {
+		return nil, err
 	}
-	return ms, nil
+	keys := make([]Key, len(rawKeys))
+	for i, rawKey := range rawKeys {
+		keys[i], err = ParseKey(rawKey.Name())
+		keys[i].s = s
+		if err != nil {
+			return nil, err
+		}
+	}
+	return keys, nil
+}
+
+func (md Maildir) GetMessage(key Key) (*mail.Message, error) {
+	p := filepath.Join(md[key.s], key.Raw)
+	f, err := os.Open(p)
+	if err != nil {
+		return nil, err
+	}
+	return mail.ReadMessage(f)
 }
 
 var (
@@ -109,6 +116,7 @@ var (
 )
 
 type Key struct {
+	s          SubDir
 	Raw        string
 	Second     uint
 	DeliveryID ID
