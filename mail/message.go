@@ -37,6 +37,8 @@ const (
 	ISO2022JPQ = "=?ISO-2022-JP?Q?"
 	UTF8B      = "=?UTF-8?B?"
 	UTF8Q      = "=?UTF-8?Q?"
+	SHIFTJISB  = "=?SHIFT_JIS?B?"
+	SHIFTJISQ  = "=?SHIFT_JIS?Q?"
 )
 
 func decodeHeader(v string) string {
@@ -63,6 +65,20 @@ func decodeHeader(v string) string {
 			qpReader := quotedprintable.NewReader(r)
 			iso2022jpDecoder := japanese.ISO2022JP.NewDecoder()
 			out[i] = transform.NewReader(qpReader, iso2022jpDecoder)
+		case strings.HasPrefix(strings.ToUpper(f), SHIFTJISB):
+			target := f[len(SHIFTJISB):strings.LastIndex(f, "?=")]
+			r := strings.NewReader(target)
+
+			b64Reader := base64.NewDecoder(base64.StdEncoding, r)
+			shiftJISDecoder := japanese.ShiftJIS.NewDecoder()
+			out[i] = transform.NewReader(b64Reader, shiftJISDecoder)
+		case strings.HasPrefix(strings.ToUpper(f), SHIFTJISQ):
+			target := f[len(SHIFTJISB):strings.LastIndex(f, "?=")]
+			r := strings.NewReader(target)
+
+			qpReader := quotedprintable.NewReader(r)
+			shiftJISDecoder := japanese.ShiftJIS.NewDecoder()
+			out[i] = transform.NewReader(qpReader, shiftJISDecoder)
 		case strings.HasPrefix(strings.ToUpper(f), UTF8B):
 			target := f[len(UTF8B):strings.LastIndex(f, "?=")]
 			r := strings.NewReader(target)
@@ -71,6 +87,11 @@ func decodeHeader(v string) string {
 			target := f[len(UTF8Q):strings.LastIndex(f, "?=")]
 			r := strings.NewReader(target)
 			out[i] = quotedprintable.NewReader(r)
+		default:
+			if i > 0 {
+				f += " "
+			}
+			out[i] = strings.NewReader(f)
 		}
 	}
 
