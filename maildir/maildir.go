@@ -22,6 +22,19 @@ const (
 	SubDirTmp
 )
 
+func NewSubDir(str string) SubDir {
+	switch str {
+	case "cur":
+		return SubDirCur
+	case "new":
+		return SubDirNew
+	case "tmp":
+		return SubDirTmp
+	default:
+		return SubDirCur
+	}
+}
+
 func (s SubDir) String() string {
 	switch s {
 	case SubDirCur:
@@ -43,6 +56,11 @@ const (
 	FlagTypeNormal
 )
 
+type Message struct {
+	Key     Key
+	Message mail.Message
+}
+
 func New(path string) (*Maildir, error) {
 	path, err := filepath.Abs(path)
 	if err != nil {
@@ -55,14 +73,14 @@ func New(path string) (*Maildir, error) {
 	}, nil
 }
 
-func (md Maildir) Messages(s SubDir) ([]*mail.Message, error) {
+func (md Maildir) Messages(s SubDir) ([]Message, error) {
 	keys, err := md.GetKeys(s)
 	if err != nil {
 		return nil, err
 	}
 	SortKey(keys)
 
-	ms := make([]*mail.Message, len(keys))
+	ms := make([]Message, len(keys))
 	for i, k := range keys {
 		err := func(i int) error {
 			p := filepath.Join(md[s], k.Raw)
@@ -76,7 +94,8 @@ func (md Maildir) Messages(s SubDir) ([]*mail.Message, error) {
 			if err != nil {
 				return err
 			}
-			ms[i] = m
+			msg := Message{Key: k, Message: *m}
+			ms[i] = msg
 			return nil
 		}(i)
 		if err != nil {
