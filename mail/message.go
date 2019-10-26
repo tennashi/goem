@@ -4,6 +4,8 @@ import (
 	"encoding/base64"
 	"io"
 	"io/ioutil"
+	"mime"
+	"mime/multipart"
 	"mime/quotedprintable"
 	"net/mail"
 	"strings"
@@ -30,6 +32,17 @@ func (h Header) AddressList(key string) ([]*mail.Address, error) {
 		a.Name = decodeHeader(a.Name)
 	}
 	return aList, err
+}
+
+func (h Header) DecodeAll() Header {
+	ret := make(map[string][]string, len(map[string][]string(h)))
+	for key, values := range h {
+		ret[key] = make([]string, len(values))
+		for i, v := range values {
+			ret[key][i] = decodeHeader(v)
+		}
+	}
+	return ret
 }
 
 const (
@@ -97,4 +110,31 @@ func decodeHeader(v string) string {
 
 	b, _ := ioutil.ReadAll((io.MultiReader(out...)))
 	return string(b)
+}
+
+type Message struct {
+	msg  *mail.Message
+	mulR *multipart.Reader
+}
+
+func ReadMessage(r io.Reader) (*Message, error) {
+	msg, err := mail.ReadMessage(r)
+	if err != nil {
+		return nil, err
+	}
+	return &Message{msg: msg}, err
+}
+
+func (m *Message) SetBodyDecoder() {
+	cType := m.msg.Header.Get("Content-Type")
+	if cType == "" {
+		return
+	}
+	mediaType, params, err := mime.ParseMediaType(cType)
+	if err != nil {
+		return
+	}
+	if strings.HasPrefix(mediaType, "multipart/") {
+		m.mulR = multipart.NewReader(m.msg.Body, params["boundary"])
+	}
 }
