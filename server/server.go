@@ -1,6 +1,7 @@
 package server
 
 import (
+	"context"
 	"log"
 	"net/http"
 
@@ -9,13 +10,9 @@ import (
 	"github.com/tennashi/goem/server/handler"
 )
 
-func Run(config *goem.Config) int {
+func Run(ctx context.Context, config *goem.Config) error {
 	s := newServer(config)
-	if err := s.run(); err != nil {
-		log.Println(err)
-		return 1
-	}
-	return 0
+	return s.run(ctx)
 }
 
 type server struct {
@@ -26,7 +23,7 @@ func newServer(config *goem.Config) *server {
 	return &server{config}
 }
 
-func (s *server) run() error {
+func (s *server) run(ctx context.Context) error {
 	log.Println("server intializing")
 	r := newRouter(s.config.RootDir)
 	hs := &http.Server{
@@ -35,10 +32,22 @@ func (s *server) run() error {
 	}
 	log.Println("server intialized")
 	log.Printf("server running on localhost:%v", s.config.Server.Port)
-	if err := hs.ListenAndServe(); err != nil {
+
+	eCh := make(chan error)
+	go func() {
+		defer close(eCh)
+		if err := hs.ListenAndServe(); err != nil {
+			eCh <- err
+		}
+	}()
+
+	select {
+	case <-ctx.Done():
+		log.Println("server shuting down")
+		return hs.Shutdown(ctx)
+	case err := <-eCh:
 		return err
 	}
-	return nil
 }
 
 func newRouter(rootPath string) *chi.Mux {
