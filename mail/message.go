@@ -15,17 +15,21 @@ import (
 	"golang.org/x/text/transform"
 )
 
+// Header is ...
 type Header mail.Header
 
+// Get is ...
 func (h Header) Get(key string) string {
 	v := mail.Header(h).Get(key)
 	return decodeHeader(v)
 }
 
+// Date is ...
 func (h Header) Date() (time.Time, error) {
 	return mail.Header(h).Date()
 }
 
+// AddressList is ...
 func (h Header) AddressList(key string) ([]*mail.Address, error) {
 	aList, err := mail.Header(h).AddressList(key)
 	for _, a := range aList {
@@ -34,6 +38,7 @@ func (h Header) AddressList(key string) ([]*mail.Address, error) {
 	return aList, err
 }
 
+// DecodeAll is ...
 func (h Header) DecodeAll() Header {
 	ret := make(map[string][]string, len(map[string][]string(h)))
 	for key, values := range h {
@@ -46,12 +51,18 @@ func (h Header) DecodeAll() Header {
 }
 
 const (
+	// ISO2022JPB is ...
 	ISO2022JPB = "=?ISO-2022-JP?B?"
+	// ISO2022JPQ is ...
 	ISO2022JPQ = "=?ISO-2022-JP?Q?"
-	UTF8B      = "=?UTF-8?B?"
-	UTF8Q      = "=?UTF-8?Q?"
-	SHIFTJISB  = "=?SHIFT_JIS?B?"
-	SHIFTJISQ  = "=?SHIFT_JIS?Q?"
+	// UTF8B is ...
+	UTF8B = "=?UTF-8?B?"
+	// UTF8Q is ...
+	UTF8Q = "=?UTF-8?Q?"
+	// SHIFTJISB is ...
+	SHIFTJISB = "=?SHIFT_JIS?B?"
+	// SHIFTJISQ is ...
+	SHIFTJISQ = "=?SHIFT_JIS?Q?"
 )
 
 func decodeHeader(v string) string {
@@ -112,11 +123,13 @@ func decodeHeader(v string) string {
 	return string(b)
 }
 
+// Message is ...
 type Message struct {
 	msg  *mail.Message
 	mulR *multipart.Reader
 }
 
+// ReadMessage is ...
 func ReadMessage(r io.Reader) (*Message, error) {
 	msg, err := mail.ReadMessage(r)
 	if err != nil {
@@ -125,6 +138,7 @@ func ReadMessage(r io.Reader) (*Message, error) {
 	return &Message{msg: msg}, err
 }
 
+// SetBodyDecoder is ...
 func (m *Message) SetBodyDecoder() {
 	cType := m.msg.Header.Get("Content-Type")
 	if cType == "" {

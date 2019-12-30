@@ -1,21 +1,28 @@
 package maildir
 
 import (
+	"errors"
 	"io/ioutil"
 	"net/mail"
 	"os"
 	"path/filepath"
 )
 
+// SubDir is the subdirectory name.
 type SubDir uint8
 
 const (
+	// SubDirUnknown is unknown directory.
 	SubDirUnknown SubDir = iota
+	// SubDirCur is the cur sub directory.
 	SubDirCur
+	// SubDirNew is the new sub directory.
 	SubDirNew
+	// SubDirTmp is the tmp sub directory.
 	SubDirTmp
 )
 
+// NewSubDir is create SubDir instance.
 func NewSubDir(str string) SubDir {
 	switch str {
 	case "cur":
@@ -29,6 +36,7 @@ func NewSubDir(str string) SubDir {
 	}
 }
 
+// String is ...
 func (s SubDir) String() string {
 	switch s {
 	case SubDirCur:
@@ -38,31 +46,38 @@ func (s SubDir) String() string {
 	case SubDirTmp:
 		return "tmp"
 	default:
-		return ""
+		return "unknown"
 	}
 }
 
-type Maildir map[SubDir]string
-
-type Mail struct {
-	Key     Key
-	Message mail.Message
+// Maildir is ...
+type Maildir struct {
+	Path string
 }
 
+// New is ...
 func New(path string) (*Maildir, error) {
 	path, err := filepath.Abs(path)
 	if err != nil {
 		return nil, err
 	}
 	return &Maildir{
-		SubDirCur: filepath.Join(path, "cur"),
-		SubDirNew: filepath.Join(path, "new"),
-		SubDirTmp: filepath.Join(path, "tmp"),
+		Path: path,
 	}, nil
 }
 
+// Mail is ...
+type Mail struct {
+	Key     Key
+	Message *mail.Message
+}
+
+// Mails is ...
 func (md Maildir) Mails(s SubDir) ([]Mail, error) {
-	keys, err := md.GetKeys(s)
+	if s == SubDirUnknown {
+		return nil, errors.New("unknown sub directory")
+	}
+	keys, err := md.Keys(s)
 	if err != nil {
 		return nil, err
 	}
@@ -71,8 +86,7 @@ func (md Maildir) Mails(s SubDir) ([]Mail, error) {
 	ms := make([]Mail, len(keys))
 	for i, k := range keys {
 		err := func(i int) error {
-			p := filepath.Join(md[s], k.Raw)
-			f, err := os.Open(p)
+			f, err := md.openMail(&k)
 			if err != nil {
 				return err
 			}
@@ -82,8 +96,7 @@ func (md Maildir) Mails(s SubDir) ([]Mail, error) {
 			if err != nil {
 				return err
 			}
-			msg := Mail{Key: k, Message: *m}
-			ms[i] = msg
+			ms[i] = Mail{Key: k, Message: m}
 			return nil
 		}(i)
 		if err != nil {
@@ -93,46 +106,76 @@ func (md Maildir) Mails(s SubDir) ([]Mail, error) {
 	return ms, nil
 }
 
-func (md Maildir) GetKeys(s SubDir) ([]Key, error) {
-	rawKeys, err := ioutil.ReadDir(md[s])
+// Keys is ...
+func (md Maildir) Keys(s SubDir) ([]Key, error) {
+	path := filepath.Join(md.Path, s.String())
+	rawKeys, err := ioutil.ReadDir(path)
 	if err != nil {
 		return nil, err
 	}
 	keys := make([]Key, len(rawKeys))
 	for i, rawKey := range rawKeys {
-		keys[i], err = ParseKey(rawKey.Name())
-		keys[i].s = s
+		key, err := ParseKey(rawKey.Name())
 		if err != nil {
 			return nil, err
 		}
+		key.subDir = s
+		keys[i] = key
 	}
 	return keys, nil
 }
 
-func (md Maildir) GetMail(key Key) (*Mail, error) {
-	p := filepath.Join(md[key.s], key.Raw)
-	f, err := os.Open(p)
+// Mail is ...
+func (md Maildir) Mail(key Key) (*Mail, error) {
+	f, err := md.openMail(&key)
 	if err != nil {
 		return nil, err
 	}
+
 	m, err := mail.ReadMessage(f)
 	if err != nil {
 		return nil, err
 	}
 	return &Mail{
 		Key:     key,
-		Message: *m,
+		Message: m,
 	}, nil
 }
 
-func (md Maildir) GetMailWithRawKey(key string) (*Mail, error) {
-	k, err := ParseKey(key)
-	if err != nil {
-		return nil, err
+func (md Maildir) openMail(key *Key) (*os.File, error) {
+	var p string
+	switch key.subDir {
+	case SubDirCur:
+		p = filepath.Join(md.Path, "cur", key.String())
+	case SubDirNew:
+		p = filepath.Join(md.Path, "new", key.String())
+	default:
+		p = filepath.Join(md.Path, "cur", key.String())
 	}
-	return md.GetMail(k)
+
+	f, err := os.Open(p)
+	if err != nil {
+		if err != os.ErrNotExist {
+			return nil, err
+		}
+		p = filepath.Join(md.Path, "new", key.String())
+		f, err = os.Open(p)
+		if err != nil {
+			return nil, err
+		}
+		if key.subDir == SubDirUnknown {
+			key.subDir = SubDirNew
+		}
+		return f, err
+	}
+
+	if key.subDir == SubDirUnknown {
+		key.subDir = SubDirCur
+	}
+	return f, nil
 }
 
+// IsMaildir is ...
 func IsMaildir(path string) bool {
 	f, err := os.Open(path)
 	if err != nil {

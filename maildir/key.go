@@ -9,19 +9,23 @@ import (
 )
 
 var (
+	// ErrCannotParse is ...
 	ErrCannotParse = errors.New("cannot parse")
 )
 
+// FlagType is ...
 type FlagType uint8
 
 const (
 	_ FlagType = iota
+	// FlagTypeExperimental is ...
 	FlagTypeExperimental
+	// FlagTypeNormal is ...
 	FlagTypeNormal
 )
 
+// Key is ...
 type Key struct {
-	s          SubDir
 	Raw        string
 	Second     uint
 	DeliveryID ID
@@ -29,8 +33,14 @@ type Key struct {
 	Params     map[string]string
 	FlagType   FlagType
 	Flags      []string
+	subDir     SubDir
 }
 
+func (k Key) String() string {
+	return k.Raw
+}
+
+// ParseKey is ..
 func ParseKey(str string) (Key, error) {
 	k := Key{Raw: str}
 
@@ -68,14 +78,11 @@ func ParseKey(str string) (Key, error) {
 	k.FlagType = FlagType(ft)
 
 	k.Flags = strings.Split(flags[1], "")
-	k.s = SubDirCur
-	if len(k.Flags) == 0 {
-		k.s = SubDirNew
-	}
 
 	return k, nil
 }
 
+// SortKey is ...
 func SortKey(ks []Key) {
 	sort.Sort(keySlice(ks))
 }
@@ -105,6 +112,7 @@ func (ks keySlice) Swap(i, j int) {
 	ks[i], ks[j] = ks[j], ks[i]
 }
 
+// ID is ...
 type ID struct {
 	UNIXSeq     uint
 	Boot        uint
@@ -116,6 +124,7 @@ type ID struct {
 	Seq         uint
 }
 
+// ParseID is ..
 func ParseID(str string) (ID, error) {
 	checkNewFormat := func(r rune) bool {
 		return !unicode.IsNumber(r)
@@ -191,6 +200,7 @@ func parseOldFashionedID(str string) (ID, error) {
 	return id, nil
 }
 
+// SortID is ...
 func SortID(ids []ID) {
 	sort.Sort(idSlice(ids))
 }

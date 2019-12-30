@@ -4,25 +4,26 @@ import (
 	"encoding/json"
 	"io/ioutil"
 	"net/http"
-	"path/filepath"
 
 	"github.com/go-chi/chi"
 	"github.com/tennashi/goem"
 )
 
-type handler struct {
-	rootPath string
+// Handler is ...
+type Handler struct {
+	mdr *goem.MaildirRoot
 }
 
-func New(rootPath string) *handler {
-	return &handler{
-		rootPath: rootPath,
+// New is ...
+func New(mdr *goem.MaildirRoot) *Handler {
+	return &Handler{
+		mdr: mdr,
 	}
-
 }
 
-func (h *handler) ListMaildir(w http.ResponseWriter, r *http.Request) {
-	mds, err := goem.Maildirs(h.rootPath)
+// ListMaildir is ...
+func (h *Handler) ListMaildir(w http.ResponseWriter, r *http.Request) {
+	mds, err := h.mdr.Maildirs()
 	if err != nil {
 		responseErr(w, err, http.StatusInternalServerError)
 		return
@@ -40,14 +41,14 @@ func (h *handler) ListMaildir(w http.ResponseWriter, r *http.Request) {
 	responseJSON(w, res, http.StatusOK)
 }
 
-func (h *handler) ListMail(w http.ResponseWriter, r *http.Request) {
+// ListMail is ...
+func (h *Handler) ListMail(w http.ResponseWriter, r *http.Request) {
 	dirName := chi.URLParam(r, "dirName")
 	subDirName := r.URL.Query().Get("sub_dir")
 	if subDirName == "" {
 		subDirName = "cur"
 	}
-	path := filepath.Join(h.rootPath, dirName)
-	ms, err := goem.Mails(path, subDirName)
+	ms, err := h.mdr.GetMails(dirName, subDirName)
 	if err != nil {
 		responseErr(w, err, http.StatusBadRequest)
 		return
@@ -69,12 +70,12 @@ func (h *handler) ListMail(w http.ResponseWriter, r *http.Request) {
 	responseJSON(w, res, http.StatusOK)
 }
 
-func (h *handler) GetMail(w http.ResponseWriter, r *http.Request) {
+// GetMail is ...
+func (h *Handler) GetMail(w http.ResponseWriter, r *http.Request) {
 	dirName := chi.URLParam(r, "dirName")
 	key := chi.URLParam(r, "key")
 
-	path := filepath.Join(h.rootPath, dirName)
-	m, err := goem.GetMail(path, key)
+	m, err := h.mdr.GetMail(dirName, key)
 	if err != nil {
 		responseErr(w, err, http.StatusInternalServerError)
 		return
@@ -90,6 +91,7 @@ func (h *handler) GetMail(w http.ResponseWriter, r *http.Request) {
 		responseErr(w, err, http.StatusInternalServerError)
 		return
 	}
+
 	res := resp{
 		Key:     key,
 		Subject: m.Subject,

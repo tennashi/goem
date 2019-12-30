@@ -10,6 +10,7 @@ import (
 	"github.com/tennashi/goem/server/handler"
 )
 
+// Run is ...
 func Run(ctx context.Context, config *goem.Config) error {
 	s := newServer(config)
 	return s.run(ctx)
@@ -25,7 +26,8 @@ func newServer(config *goem.Config) *server {
 
 func (s *server) run(ctx context.Context) error {
 	log.Println("server intializing")
-	r := newRouter(s.config.RootDir)
+	mdr := goem.NewMaildirRoot(s.config.RootDir)
+	r := newRouter(mdr)
 	hs := &http.Server{
 		Addr:    ":" + s.config.Server.Port,
 		Handler: r,
@@ -50,10 +52,10 @@ func (s *server) run(ctx context.Context) error {
 	}
 }
 
-func newRouter(rootPath string) *chi.Mux {
+func newRouter(mdr *goem.MaildirRoot) *chi.Mux {
 	r := chi.NewRouter()
 
-	h := handler.New(rootPath)
+	h := handler.New(mdr)
 	r.Get("/maildir/", h.ListMaildir)
 	r.Get("/maildir/{dirName}", h.ListMail)
 	r.Get("/maildir/{dirName}/{key}", h.GetMail)

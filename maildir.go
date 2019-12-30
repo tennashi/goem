@@ -8,22 +8,21 @@ import (
 	"github.com/tennashi/goem/maildir"
 )
 
-type Maildir struct {
-	Name string
+// MaildirRoot is ...
+type MaildirRoot struct {
+	path string
 }
 
-func NewMaildir(path string) (*Maildir, error) {
-	if !maildir.IsMaildir(path) {
-		return nil, fmt.Errorf("%v is not maildir", path)
+// NewMaildirRoot is ...
+func NewMaildirRoot(path string) *MaildirRoot {
+	return &MaildirRoot{
+		path: path,
 	}
-	return &Maildir{
-		Name: filepath.Base(path),
-	}, nil
-
 }
 
-func Maildirs(rootPath string) ([]Maildir, error) {
-	dirsInfo, err := ioutil.ReadDir(rootPath)
+// Maildirs is ...
+func (r *MaildirRoot) Maildirs() ([]Maildir, error) {
+	dirsInfo, err := ioutil.ReadDir(r.path)
 	if err != nil {
 		return nil, err
 	}
@@ -32,7 +31,7 @@ func Maildirs(rootPath string) ([]Maildir, error) {
 		if !dirInfo.IsDir() {
 			continue
 		}
-		path := filepath.Join(rootPath, dirInfo.Name())
+		path := filepath.Join(r.path, dirInfo.Name())
 		md, err := NewMaildir(path)
 		if err != nil {
 			continue
@@ -40,4 +39,67 @@ func Maildirs(rootPath string) ([]Maildir, error) {
 		maildirs = append(maildirs, *md)
 	}
 	return maildirs, nil
+}
+
+func (r *MaildirRoot) maildirPath(mdName string) string {
+	return filepath.Join(r.path, mdName)
+}
+
+// GetMails is ...
+func (r *MaildirRoot) GetMails(mdName, subDirName string) ([]Mail, error) {
+	path := r.maildirPath(mdName)
+	if !maildir.IsMaildir(path) {
+		return nil, fmt.Errorf("%v is not maildir", path)
+	}
+	md, err := maildir.New(path)
+	if err != nil {
+		return nil, err
+	}
+	sd := maildir.NewSubDir(subDirName)
+	ms, err := md.Mails(sd)
+	if err != nil {
+		return nil, err
+	}
+	mails := make([]Mail, len(ms))
+	for i, m := range ms {
+		mail := NewMail(m)
+		mails[i] = *mail
+	}
+	return mails, nil
+}
+
+// GetMail is ...
+func (r *MaildirRoot) GetMail(mdName, key string) (*Mail, error) {
+	path := r.maildirPath(mdName)
+	if !maildir.IsMaildir(path) {
+		return nil, fmt.Errorf("%v is not maildir", path)
+	}
+	md, err := maildir.New(path)
+	if err != nil {
+		return nil, err
+	}
+	k, err := maildir.ParseKey(key)
+	if err != nil {
+		return nil, err
+	}
+	ml, err := md.Mail(k)
+	if err != nil {
+		return nil, err
+	}
+	return NewMail(*ml), nil
+}
+
+// Maildir is ...
+type Maildir struct {
+	Name string
+}
+
+// NewMaildir is ...
+func NewMaildir(path string) (*Maildir, error) {
+	if !maildir.IsMaildir(path) {
+		return nil, fmt.Errorf("%v is not maildir", path)
+	}
+	return &Maildir{
+		Name: filepath.Base(path),
+	}, nil
 }
